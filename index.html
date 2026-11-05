@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>আমাদের চ্যাট</title>
+<style>
+  * { box-sizing: border-box; font-family: 'Segoe UI', 'Noto Sans Bengali', sans-serif; margin: 0; padding: 0; }
+  body { background: #0f172a; display: flex; justify-content: center; align-items: center; height: 100vh; }
+  .app { width: 400px; height: 650px; background: #fff; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+  .header { background: #0084ff; color: #fff; padding: 15px; font-size: 18px; font-weight: bold; text-align: center; }
+  .login-box { padding: 20px; display: flex; flex-direction: column; gap: 10px; margin-top: 50px; }
+  .login-box input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
+  .login-box button { padding: 12px; background: #0084ff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+  .chat-box { flex: 1; display: none; flex-direction: column; }
+  .chat-box.active { display: flex; }
+  .messages { flex: 1; overflow-y: auto; padding: 15px; background: #f1f5f9; display: flex; flex-direction: column; gap: 8px; }
+  .msg { max-width: 75%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
+  .msg.mine { background: #0084ff; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+  .msg.theirs { background: #e2e8f0; color: #1e293b; align-self: flex-start; border-bottom-left-radius: 4px; }
+  .msg .name { font-size: 11px; font-weight: bold; margin-bottom: 2px; opacity: 0.8; }
+  .input-area { display: flex; padding: 10px; background: #fff; border-top: 1px solid #ddd; gap: 8px; }
+  .input-area input { flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+  .input-area button { padding: 10px 20px; background: #0084ff; color: white; border: none; border-radius: 20px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">আমাদের চ্যাট</div>
+
+  <!-- লগইন স্ক্রিন -->
+  <div class="login-box" id="loginBox">
+    <p style="text-align:center; color:#555; margin-bottom:10px;">নাম দিয়ে ঢুকো</p>
+    <input type="text" id="usernameInput" placeholder="তোমার নাম">
+    <button onclick="login()">চ্যাটে ঢুকো</button>
+  </div>
+
+  <!-- চ্যাট স্ক্রিন -->
+  <div class="chat-box" id="chatBox">
+    <div class="messages" id="messages"></div>
+    <div class="input-area">
+      <input type="text" id="msgInput" placeholder="মেসেজ লিখো...">
+      <button onclick="sendMessage()">পাঠাও</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getDatabase, ref, push, onChildAdded, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+  // তোমার Firebase কনফিগ এখানে বসানো হয়েছে
+  const firebaseConfig = {
+    apiKey: "AIzaSyDosMaN6i6DWzSvVVoEegCW2UdVOeFc84E",
+    authDomain: "chat-fd-1b889.firebaseapp.com",
+    databaseURL: "https://chat-fd-1b889-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "chat-fd-1b889",
+    storageBucket: "chat-fd-1b889.firebasestorage.app",
+    messagingSenderId: "178214329267",
+    appId: "1:178214329267:web:33d8ac4a8891d9f42249c6"
+  };
+
+  // Firebase চালু করো
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const chatRef = ref(db, 'chat/messages');
+
+  let myName = "";
+
+  // লগইন ফাংশন
+  window.login = function() {
+    const name = document.getElementById('usernameInput').value.trim();
+    if (!name) return alert("নাম লেখো ভাই!");
+    myName = name;
+    document.getElementById('loginBox').style.display = 'none';
+    document.getElementById('chatBox').classList.add('active');
+    listenForMessages();
+  };
+
+  // মেসেজ পাঠানো
+  window.sendMessage = function() {
+    const input = document.getElementById('msgInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    push(chatRef, {
+      name: myName,
+      text: text,
+      timestamp: serverTimestamp()
+    });
+
+    input.value = '';
+  };
+
+  // রিয়েল-টাইমে মেসেজ শোনা
+  function listenForMessages() {
+    const messagesDiv = document.getElementById('messages');
+
+    onChildAdded(chatRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+
+      const msgEl = document.createElement('div');
+      msgEl.className = 'msg ' + (data.name === myName ? 'mine' : 'theirs');
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'name';
+      nameEl.textContent = data.name;
+
+      const textEl = document.createElement('div');
+      textEl.textContent = data.text;
+
+      msgEl.appendChild(nameEl);
+      msgEl.appendChild(textEl);
+      messagesDiv.appendChild(msgEl);
+
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+  }
+
+  // এন্টার চাপলে মেসেজ পাঠাও
+  document.getElementById('msgInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') sendMessage();
+  });
+</script>
+
+</body>
+</html>
